@@ -1,32 +1,19 @@
 import 'dart:io';
-
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
-import 'package:shelf_router/shelf_router.dart';
-
-// Configure routes.
-final _router = Router()
-  ..get('/', _rootHandler)
-  ..get('/echo/<message>', _echoHandler);
-
-Response _rootHandler(Request req) {
-  return Response.ok('Hello, World!\n');
-}
-
-Response _echoHandler(Request request) {
-  final message = request.params['message'];
-  return Response.ok('$message\n');
-}
+import '../routes/admin_routes.dart';
+import '../routes/user_routes.dart';
 
 void main(List<String> args) async {
-  // Use any available host or container IP (usually `0.0.0.0`).
-  final ip = InternetAddress.anyIPv4;
+  String address = Platform.environment['HOST'] ?? '127.0.0.1';
+  int port = int.parse(Platform.environment['PORT'] ?? '4000');
 
-  // Configure a pipeline that logs requests.
-  final handler = Pipeline().addMiddleware(logRequests()).addHandler(_router);
+  Handler cascade = Cascade()
+  .add(UserRoutes(baseRoute: '/user').routes)
+  .add(AdminRoutes(baseRoute: '/admin').routes).handler;
 
-  // For running in containers, we respect the PORT environment variable.
-  final port = int.parse(Platform.environment['PORT'] ?? '8080');
-  final server = await serve(handler, ip, port);
-  print('Server listening on ${ip.address} - ${server.port}');
+  Handler handler = Pipeline().addMiddleware(logRequests()).addHandler(cascade);
+
+  HttpServer server = await serve(handler, address, port);
+  print('Server listening on ${server.address} - ${server.port}');
 }
